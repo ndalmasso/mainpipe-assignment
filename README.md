@@ -45,7 +45,7 @@ mainpipe-assignment/
 
 ## Installation
 ### ⚠️ **Before Running – Add Raw Data**
-Download your input `.jsonl` files and place them in: data/raw
+Download your input `.jsonl` files and place them in a new folder inside data/: data/raw
 
 The pipeline expects this directory to contain all raw input files.
 
@@ -145,5 +145,6 @@ All plots saved to `data/plots/`:
 - Disk space: ~3x input data size
 
 ## License
+
 
 MIT License - See LICENSE file for details
