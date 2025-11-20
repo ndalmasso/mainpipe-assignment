@@ -203,6 +203,30 @@ def stage3_shuffle_and_shard(records):
 
     return shard_idx
 
+# =====================================================
+# Stage 4 — Combine Shards
+# =====================================================
+
+def stage4_combine_shards():
+    """
+    Combine all shard_*.jsonl files into a single JSONL file.
+    """
+    print("\n" + "="*60)
+    print("STAGE 4 — Combine Shards")
+    print("="*60)
+
+    shard_files = sorted(Path(PROCESSED_DIR).glob("shard_*.jsonl"))
+    output_file = Path(PROCESSED_DIR) / "all_processed.jsonl"
+
+    with open(output_file, "w", encoding="utf-8") as out_f:
+        for shard_file in shard_files:
+            with open(shard_file, "r", encoding="utf-8") as in_f:
+                for line in in_f:
+                    out_f.write(line)
+
+    print(f"✅ Combined {len(shard_files)} shards into {output_file}")
+    return output_file
+
 
 # =====================================================
 # Main
@@ -224,6 +248,9 @@ def main():
 
     # Stage 3 — Export
     num_shards = stage3_shuffle_and_shard(cleaned_records)
+
+    # Stage 4 — Combine Shards
+    combined_file = stage4_combine_shards()
 
     # Save metadata
     drop_path = Path(PROCESSED_DIR) / "drop_reasons.json"
