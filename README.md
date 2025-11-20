@@ -144,7 +144,3 @@ All plots saved to `data/plots/`:
 - 8GB+ RAM recommended
 - Disk space: ~3x input data size
 
-## License
-
-
-MIT License - See LICENSE file for details
