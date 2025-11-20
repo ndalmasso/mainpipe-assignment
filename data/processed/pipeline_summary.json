@@ -1,0 +1,12 @@
+{
+  "records_after_cleaning": 229715,
+  "shards": 46,
+  "shard_size": 5000,
+  "drop_reasons": {
+    "non_english": 25097,
+    "pii_replaced": 12891,
+    "duplicate": 940,
+    "length_filtered": 13626
+  },
+  "runtime_sec": 987.18
+}
