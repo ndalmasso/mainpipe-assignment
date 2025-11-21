@@ -22,8 +22,8 @@ import seaborn as sns
 # Make langdetect deterministic
 DetectorFactory.seed = 0
 
-RAW_DIR = "../data/raw/"
-PLOTS_DIR = "../data/plots/"
+RAW_DIR = "data/raw/"
+PLOTS_DIR = "data/plots/"
 SAMPLE_LIMIT = 50000  # max samples to scan
 
 # Create plots directory

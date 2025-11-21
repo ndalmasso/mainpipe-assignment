@@ -27,10 +27,10 @@ try:
     HAS_TIKTOKEN = True
 except ImportError:
     HAS_TIKTOKEN = False
-    print("⚠️  tiktoken not found - PII detection will be skipped")
+    print("⚠️  tiktoken not found - token decoding will be skipped")
 
-PROCESSED_DIR = "../data/processed/"
-PLOTS_DIR = "../data/plots/"
+PROCESSED_DIR = "data/processed/"
+PLOTS_DIR = "data/plots/"
 
 # Create plots directory
 os.makedirs(PLOTS_DIR, exist_ok=True)
@@ -86,8 +86,12 @@ def analyze_output_data():
                 
                 total_records += 1
                 
-                # Data is tokenized (list of integers)
-                if isinstance(data, list):
+                # FIXED: Handle both formats
+                # Format 1: {"tokens": [1, 2, 3, ...]}
+                # Format 2: [1, 2, 3, ...] (raw list)
+                if isinstance(data, dict) and "tokens" in data:
+                    tokens = data["tokens"]
+                elif isinstance(data, list):
                     tokens = data
                 else:
                     continue
@@ -112,6 +116,16 @@ def analyze_output_data():
                         decoded_texts.append(decoded)
                     except:
                         pass
+    
+    # Check if we actually processed any records
+    if total_records == 0:
+        print("\n❌ No valid records found in shard files!")
+        print("   Make sure the pipeline has been run successfully.")
+        return
+    
+    if len(is_duplicate_list) == 0:
+        print("\n❌ No data to analyze!")
+        return
     
     # Load drop reasons (NOISE/INTEGRITY)
     drop_reasons_path = processed_path / "drop_reasons.json"
@@ -160,12 +174,13 @@ def analyze_output_data():
     print(f"  Unique: {dup_counts.get(False, 0):,} ({dup_counts.get(False, 0)/len(is_duplicate_list)*100:.1f}%)")
     print(f"  Duplicate: {dup_counts.get(True, 0):,} ({dup_counts.get(True, 0)/len(is_duplicate_list)*100:.1f}%)")
     
-    print(f"\n📏 NOISE/INTEGRITY - Token Lengths:")
-    print(f"  Mean: {np.mean(token_lengths):.1f}")
-    print(f"  Median: {np.median(token_lengths):.1f}")
-    print(f"  Min: {np.min(token_lengths):.0f}")
-    print(f"  Max: {np.max(token_lengths):.0f}")
-    print(f"  Std Dev: {np.std(token_lengths):.1f}")
+    if token_lengths:
+        print(f"\n📏 NOISE/INTEGRITY - Token Lengths:")
+        print(f"  Mean: {np.mean(token_lengths):.1f}")
+        print(f"  Median: {np.median(token_lengths):.1f}")
+        print(f"  Min: {np.min(token_lengths):.0f}")
+        print(f"  Max: {np.max(token_lengths):.0f}")
+        print(f"  Std Dev: {np.std(token_lengths):.1f}")
     
     if drop_reasons:
         print(f"\n❌ NOISE/INTEGRITY - Drop Reasons:")
@@ -224,35 +239,37 @@ def generate_output_plots(token_lengths, dup_counts, drop_reasons, total_records
     plt.rcParams.update({'font.size': 18})
 
     # 1. Token Length Distribution
-    plt.figure(figsize=(10, 10))
-    plt.hist(token_lengths, bins=50, color='lightgray', edgecolor='black', alpha=0.7, density=True)
-    plt.axvline(np.mean(token_lengths), color='green', linestyle='--', linewidth=2, label=f'Mean: {np.mean(token_lengths):.0f}')
-    plt.axvline(np.median(token_lengths), color='magenta', linestyle='--', linewidth=2, label=f'Median: {np.median(token_lengths):.0f}')
-    plt.xlabel('Token Length')
-    plt.ylabel('Density')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOTS_DIR, 'output_01_token_length.png'), bbox_inches='tight')
-    plt.close()
-    print("  ✓ Saved: output_01_token_length.png")
+    if token_lengths:
+        plt.figure(figsize=(10, 10))
+        plt.hist(token_lengths, bins=50, color='lightgray', edgecolor='black', alpha=0.7, density=True)
+        plt.axvline(np.mean(token_lengths), color='green', linestyle='--', linewidth=2, label=f'Mean: {np.mean(token_lengths):.0f}')
+        plt.axvline(np.median(token_lengths), color='magenta', linestyle='--', linewidth=2, label=f'Median: {np.median(token_lengths):.0f}')
+        plt.xlabel('Token Length')
+        plt.ylabel('Density')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.savefig(os.path.join(PLOTS_DIR, 'output_01_token_length.png'), bbox_inches='tight')
+        plt.close()
+        print("  ✓ Saved: output_01_token_length.png")
 
     # 2. Duplicate Detection
-    plt.figure(figsize=(10, 10))
-    labels = ['Unique', 'Duplicate']
-    values = [dup_counts.get(False, 0), dup_counts.get(True, 0)]
-    colors = ['lightgreen', 'lightcoral']
-    plt.bar(labels, values, color=colors, edgecolor='black')
-    plt.ylabel('Count')
-    plt.grid(True, alpha=0.3, axis='y')
-    total = sum(values)
-    for i, v in enumerate(values):
-        percentage = (v / total * 100) if total > 0 else 0
-        plt.text(i, v, f'{v:,}-({percentage:.1f}%)', ha='center', va='bottom', fontweight='bold', fontsize=14)
-    plt.tight_layout()
-    plt.savefig(os.path.join(PLOTS_DIR, 'output_02_deduplication.png'), bbox_inches='tight')
-    plt.close()
-    print("  ✓ Saved: output_02_deduplication.png")
+    if dup_counts:
+        plt.figure(figsize=(10, 10))
+        labels = ['Unique', 'Duplicate']
+        values = [dup_counts.get(False, 0), dup_counts.get(True, 0)]
+        colors = ['lightgreen', 'lightcoral']
+        plt.bar(labels, values, color=colors, edgecolor='black')
+        plt.ylabel('Count')
+        plt.grid(True, alpha=0.3, axis='y')
+        total = sum(values)
+        for i, v in enumerate(values):
+            percentage = (v / total * 100) if total > 0 else 0
+            plt.text(i, v, f'{v:,}\n({percentage:.1f}%)', ha='center', va='bottom', fontweight='bold', fontsize=14)
+        plt.tight_layout()
+        plt.savefig(os.path.join(PLOTS_DIR, 'output_02_deduplication.png'), bbox_inches='tight')
+        plt.close()
+        print("  ✓ Saved: output_02_deduplication.png")
 
     # 3. Drop Reasons
     if drop_reasons:
@@ -268,7 +285,7 @@ def generate_output_plots(token_lengths, dup_counts, drop_reasons, total_records
         for bar in bars:
             height = bar.get_height()
             percentage = (height / tot_counts * 100) if tot_counts > 0 else 0
-            plt.text(bar.get_x() + bar.get_width()/2., height, f'{int(height):,}-({percentage:.1f}%)', ha='center', va='bottom', fontweight='bold', fontsize=14)
+            plt.text(bar.get_x() + bar.get_width()/2., height, f'{int(height):,}\n({percentage:.1f}%)', ha='center', va='bottom', fontweight='bold', fontsize=14)
         plt.tight_layout()
         plt.savefig(os.path.join(PLOTS_DIR, 'output_03_drop_reasons.png'), bbox_inches='tight')
         plt.close()
@@ -331,7 +348,7 @@ def generate_output_plots(token_lengths, dup_counts, drop_reasons, total_records
         for bar in bars:
             height = bar.get_height()
             percentage = (height / total_input * 100) if total_input > 0 else 0
-            plt.text(bar.get_x() + bar.get_width()/2., height, f'{int(height):,}-({percentage:.1f}%)', ha='center', va='bottom', fontweight='bold', fontsize=14)
+            plt.text(bar.get_x() + bar.get_width()/2., height, f'{int(height):,}\n({percentage:.1f}%)', ha='center', va='bottom', fontweight='bold', fontsize=14)
         plt.tight_layout()
         plt.savefig(os.path.join(PLOTS_DIR, 'output_07_pipeline_flow.png'), bbox_inches='tight')
         plt.close()
