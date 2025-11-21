@@ -54,36 +54,14 @@ The pipeline expects this directory to contain all raw input files.
 ```bash
 # Install dependencies
 pip install -r requirements.txt
-
-# Run full pipeline
-bash run_pipeline.sh
-```
-
-### Option 2: Docker (Containerized)
-```bash
-# Build container
-docker build -t llm-pipeline .
-
-# Run pipeline
-docker run -v $(pwd)/data:/app/data llm-pipeline
-
-# Run inspections
-docker run -v $(pwd)/data:/app/data llm-pipeline python scripts/input_inspection.py
-docker run -v $(pwd)/data:/app/data llm-pipeline python scripts/output_inspection.py
 ```
 
 ## Usage
 
 ### Manual Execution
 ```bash
-# Step 1: Analyze raw input
-python scripts/input_inspection.py
-
-# Step 2: Run pipeline
-python main.py
-
-# Step 3: Analyze processed output
-python scripts/output_inspection.py
+# Run full pipeline
+bash run_pipeline.sh
 ```
 
 ### Configuration
@@ -143,6 +121,7 @@ All plots saved to `data/plots/`:
 - Python 3.10+
 - 8GB+ RAM recommended
 - Disk space: ~3x input data size
+
 
 
 
