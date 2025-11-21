@@ -7,11 +7,11 @@ End-to-end containerized pipeline for processing and cleaning text data for LLM 
 ```
 mainpipe-assignment/
 │
-├── mod/                           # Core pipeline modules
+├── mod/                          # Core pipeline modules
 │   ├── __init__.py
-│   └── data_cleaning.py         # Cleaning, tokenization, PII removal
+│   └── data_cleaning.py          # Cleaning, tokenization, PII removal
 │
-├── scripts/                       # Inspection/analysis scripts
+├── scripts/                      # Inspection/analysis scripts
 │   ├── input_inspection.py       # Pre-processing analysis
 │   └── output_inspection.py      # Post-processing analysis
 │
@@ -143,5 +143,6 @@ All plots saved to `data/plots/`:
 - Python 3.10+
 - 8GB+ RAM recommended
 - Disk space: ~3x input data size
+
 
 
