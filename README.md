@@ -1,9 +1,7 @@
 # LLM Data Preparation Pipeline
-
 End-to-end containerized pipeline for processing and cleaning text data for LLM training.
 
 ## Project Structure
-
 ```
 mainpipe-assignment/
 │
@@ -25,7 +23,7 @@ mainpipe-assignment/
 ├── Dockerfile                    # Container configuration
 ├── requirements.txt              # Python dependencies
 ├── README.md                     # This file
-└── ND_Mainpipe_Assignment.pdf    # pdf of the report
+└── ND_Mainpipe_Assignment.pdf    # PDF of the report
 ```
 
 ## Features
@@ -37,34 +35,43 @@ mainpipe-assignment/
 
 ### Evaluation Metrics
 - **Deduplication**: Hash-based duplicate detection
-- **Noise/Integrity**: Token length filtering, drop reason tracking
+- **Noise/Integrity**: Token length filtering, drop-reason tracking
 - **Safety**: PII detection and removal
 - **Coverage**: Language distribution analysis
 - **Quality**: Vocabulary richness, lexical diversity
 - **Performance**: Throughput metrics, pipeline timing
 - **Linguistics**: Similarity analysis for repeat detection
 
-## Installation
-### ⚠️ **Before Running – Add Raw Data**
-Download your input `.jsonl` files and place them in a new folder inside data/: data/raw
+## Prerequisites
 
+### ⚠️ **Before Running – Add Raw Data**
+Download your input `.jsonl` files and place them in a new folder inside `data/`:
+```
+data/raw/
+```
 The pipeline expects this directory to contain all raw input files.
+
+## Installation
 
 ### Option 1: Local Setup
 ```bash
 # Install dependencies
 pip install -r requirements.txt
-```
 
-## Usage
-
-### Manual Execution
-```bash
-# Run full pipeline
+# Run pipeline
 bash run_pipeline.sh
 ```
 
-### Configuration
+### Option 2: Docker Setup
+```bash
+# Build container
+docker build -t llm-pipeline .
+
+# Run pipeline
+docker run -v $(pwd)/data:/app/data llm-pipeline
+```
+
+## Configuration
 Edit `main.py` to adjust pipeline parameters:
 ```python
 MIN_TOKENS = 10      # Minimum token length
@@ -119,14 +126,6 @@ All plots saved to `data/plots/`:
 - Safety metrics tracked pre/post processing
 
 ## Requirements
-
 - Python 3.10+
 - 8GB+ RAM recommended
 - Disk space: ~3x input data size
-
-
-
-
-
-
-
