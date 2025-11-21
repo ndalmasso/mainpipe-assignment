@@ -214,3 +214,133 @@ def estimate_quality_score(text):
             score *= 0.6
     
     return score
+
+def process_batch_text_only(records, min_tokens=5, max_tokens=1000, do_pii=True):
+    """
+    Process a batch of records and return CLEANED TEXT (not tokens).
+    
+    This version is for final output submission where text format is required.
+    Tokenization is only used for length validation.
+    
+    Args:
+        records (list): list of dicts with "text" key
+        min_tokens (int): minimum token length to keep
+        max_tokens (int): maximum token length to keep
+        do_pii (bool): whether to replace PII
+    
+    Returns:
+        tuple: (text_records, drop_reasons)
+        where text_records is list of dicts: [{"text": "cleaned text"}, ...]
+    """
+    drop_reasons = Counter()
+    text_records = []
+    seen_hashes = set()  # For deduplication within this batch
+    
+    for rec in records:
+        text = rec.get("text", "")
+        
+        # Step 1: Clean text
+        text = clean_text(text)
+        
+        # Step 2: Check if empty
+        if not text:
+            drop_reasons["empty"] += 1
+            continue
+        
+        # Step 3: Language detection
+        if not is_english(text):
+            drop_reasons["non_english"] += 1
+            continue
+        
+        # Step 4: PII handling
+        if do_pii:
+            text, pii_found = remove_pii(text)
+            if pii_found:
+                drop_reasons["pii_replaced"] += 1
+        
+        # Step 5: Deduplication (before tokenization to save time)
+        text_hash = hash(text.lower().strip())
+        if text_hash in seen_hashes:
+            drop_reasons["duplicate"] += 1
+            continue
+        seen_hashes.add(text_hash)
+        
+        # Step 6: Tokenize for length validation ONLY
+        try:
+            tokens = tokenize_text(text)
+            
+            # Step 7: Length filtering
+            if min_tokens <= len(tokens) <= max_tokens:
+                # Store TEXT, not tokens!
+                text_records.append({"text": text})
+            else:
+                drop_reasons["length_filtered"] += 1
+        except Exception as e:
+            drop_reasons["tokenization_error"] += 1
+            continue
+    
+    return text_records, dict(drop_reasons)
+
+
+# Add this to your data_cleaning.py
+
+def process_batch_dual_output(records, min_tokens=5, max_tokens=1000, do_pii=True):
+    """
+    Process batch and return BOTH tokenized data AND cleaned text.
+    
+    Returns:
+        tuple: (tokenized_list, text_list, drop_reasons)
+        Both lists have the SAME length and correspond 1:1
+    """
+    from collections import Counter
+    
+    drop_reasons = Counter()
+    tokenized_list = []
+    text_list = []
+    seen_hashes = set()
+    
+    for rec in records:
+        text = rec.get("text", "")
+        
+        # Step 1: Clean text
+        text = clean_text(text)
+        
+        # Step 2: Check if empty
+        if not text:
+            drop_reasons["empty"] += 1
+            continue
+        
+        # Step 3: Language detection
+        if not is_english(text):
+            drop_reasons["non_english"] += 1
+            continue
+        
+        # Step 4: PII handling
+        if do_pii:
+            text, pii_found = remove_pii(text)
+            if pii_found:
+                drop_reasons["pii_replaced"] += 1
+        
+        # Step 5: Deduplication
+        text_hash = hash(text.lower().strip())
+        if text_hash in seen_hashes:
+            drop_reasons["duplicate"] += 1
+            continue
+        seen_hashes.add(text_hash)
+        
+        # Step 6: Tokenize
+        try:
+            tokens = tokenize_text(text)
+            
+            # Step 7: Length filtering
+            if min_tokens <= len(tokens) <= max_tokens:
+                # BOTH outputs - they correspond 1:1
+                tokenized_list.append(tokens)
+                text_list.append(text)  # CLEANED text with PII removed
+            else:
+                drop_reasons["length_filtered"] += 1
+        except Exception:
+            drop_reasons["tokenization_error"] += 1
+            continue
+    
+    return tokenized_list, text_list, dict(drop_reasons)
