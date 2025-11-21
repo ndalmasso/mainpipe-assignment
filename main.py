@@ -1,4 +1,3 @@
-# main.py
 """
 LLM Data Preparation Pipeline (Sequential Version)
 - Streaming input (low memory)
@@ -29,7 +28,7 @@ except ImportError:
     print("⚠ orjson not installed — using Python json.")
 
 # your cleaning module
-from mod.data_cleaning import process_batch
+from mod.data_cleaning import process_batch_dual_output  # FIXED: use dual output
 
 
 # =====================================================
@@ -77,7 +76,7 @@ def get_input_files():
 
 
 def write_shard(records, shard_idx):
-    """Save shard to disk."""
+    """Save shard to disk as JSONL (one JSON object per line)."""
     out_path = Path(PROCESSED_DIR) / f"shard_{shard_idx:04d}.jsonl"
     with open(out_path, "w", encoding="utf-8") as f:
         for rec in records:
@@ -85,8 +84,40 @@ def write_shard(records, shard_idx):
                 f.write(orjson.dumps(rec).decode("utf-8"))
             else:
                 json.dump(rec, f)
-            f.write("\n")
+            f.write("\n")  # CRITICAL: newline after each JSON object
     return out_path
+
+def write_text_jsonl(texts):
+    """
+    Write cleaned text as proper JSONL (one JSON object per line).
+    Each line: {"text": "cleaned content here"}
+    """
+    output_file = Path(PROCESSED_DIR) / "all_processed_text.jsonl"
+    
+    print(f"\n📄 Writing submission-ready JSONL to {output_file}")
+    
+    with open(output_file, "w", encoding="utf-8") as f:
+        for text in texts:
+            # Each line is a separate JSON object
+            json.dump({"text": text}, f, ensure_ascii=False)
+            f.write("\n")  # CRITICAL: newline after each JSON object
+    
+    print(f"✅ Written {len(texts):,} records in JSONL format")
+    
+    # Verify format
+    print("\n🔍 Verifying JSONL format...")
+    with open(output_file, "r", encoding="utf-8") as f:
+        for i, line in enumerate(f):
+            if i >= 3:  # Check first 3 lines
+                break
+            try:
+                obj = json.loads(line)
+                preview = obj.get("text", "")[:60]
+                print(f"  Line {i+1}: {{'text': '{preview}...'}}")
+            except json.JSONDecodeError as e:
+                print(f"  Line {i+1}: ERROR - {e}")
+    
+    return output_file
 
 
 # =====================================================
@@ -136,40 +167,42 @@ def stage1_load_light_filter(input_files):
 
 def stage2_heavy_processing(records):
     """
-    Sequential batch processing:
-    - language detection
-    - PII scrub/replace
-    - tokenization
-    - length filtering
-    - deduplication (inside cleaning module)
+    Sequential batch processing - returns BOTH tokens and cleaned text.
     """
     print("\n" + "="*60)
     print("STAGE 2 — Heavy Processing")
     print("="*60)
 
-    final_records = []
+    final_tokens = []
+    final_texts = []
     global_drop = Counter()
 
     for i in range(0, len(records), BATCH_SIZE):
         batch = records[i : i + BATCH_SIZE]
 
-        processed, drop_reasons = process_batch(
+        # FIXED: Get BOTH tokens and cleaned text
+        tokens_batch, texts_batch, drop_reasons = process_batch_dual_output(
             batch,
             min_tokens=MIN_TOKENS,
             max_tokens=MAX_TOKENS,
             do_pii=True
         )
 
-        final_records.extend(processed)
+        # Both lists have same length and correspond 1:1
+        final_tokens.extend(tokens_batch)
+        final_texts.extend(texts_batch)
 
         for k, v in drop_reasons.items():
             global_drop[k] += v
 
     print(f"\n✓ Heavy processing complete")
-    print(f"✓ Final kept: {len(final_records):,}")
+    print(f"✓ Final kept: {len(final_tokens):,}")
     print(f"✓ Dropped total: {sum(global_drop.values()):,}")
+    
+    # Verify they match
+    assert len(final_tokens) == len(final_texts), "Token/text mismatch!"
 
-    return final_records, global_drop
+    return final_tokens, final_texts, global_drop
 
 
 # =====================================================
@@ -203,28 +236,51 @@ def stage3_shuffle_and_shard(records):
 
     return shard_idx
 
+
 # =====================================================
-# Stage 4 — Combine Shards
+# Stage 4 — Combine Shards into single JSONL
 # =====================================================
 
 def stage4_combine_shards():
     """
     Combine all shard_*.jsonl files into a single JSONL file.
+    Each line is a JSON object with {"text": "..."} format.
     """
     print("\n" + "="*60)
-    print("STAGE 4 — Combine Shards")
+    print("STAGE 4 — Combine Shards into JSONL")
     print("="*60)
 
     shard_files = sorted(Path(PROCESSED_DIR).glob("shard_*.jsonl"))
     output_file = Path(PROCESSED_DIR) / "all_processed.jsonl"
 
+    total_records = 0
     with open(output_file, "w", encoding="utf-8") as out_f:
-        for shard_file in shard_files:
+        for shard_file in tqdm(shard_files, desc="Combining shards"):
             with open(shard_file, "r", encoding="utf-8") as in_f:
                 for line in in_f:
-                    out_f.write(line)
+                    line = line.strip()
+                    if line:  # skip empty lines
+                        out_f.write(line)
+                        out_f.write("\n")
+                        total_records += 1
 
     print(f"✅ Combined {len(shard_files)} shards into {output_file}")
+    print(f"✅ Total records in combined file: {total_records:,}")
+    
+    # Verify JSONL format
+    print("\n📋 Verifying JSONL format...")
+    with open(output_file, "r", encoding="utf-8") as f:
+        sample_lines = [f.readline() for _ in range(3)]
+    
+    print("Sample lines from output:")
+    for i, line in enumerate(sample_lines, 1):
+        if line.strip():
+            try:
+                obj = json.loads(line)
+                print(f"  Line {i}: {{'text': '{obj.get('text', '')[:50]}...'}}")
+            except:
+                print(f"  Line {i}: ERROR parsing JSON")
+    
     return output_file
 
 
@@ -243,27 +299,38 @@ def main():
     # Stage 1 — Light Filtering
     raw_records = stage1_load_light_filter(input_files)
 
-    # Stage 2 — Heavy Cleaning
-    cleaned_records, drop_reasons = stage2_heavy_processing(raw_records)
+    # Stage 2 — Heavy Cleaning (returns BOTH tokens and text)
+    tokenized_records, cleaned_texts, drop_reasons = stage2_heavy_processing(raw_records)
 
-    # Stage 3 — Export
+    # Write submission-ready JSONL file
+    text_output_file = write_text_jsonl(cleaned_texts)
+
+    # FIXED: Create records from tokenized data for sharding
+    cleaned_records = [{"tokens": tokens} for tokens in tokenized_records]
+
+    # Stage 3 — Export to shards
     num_shards = stage3_shuffle_and_shard(cleaned_records)
 
-    # Stage 4 — Combine Shards
+    # Stage 4 — Combine into single JSONL
     combined_file = stage4_combine_shards()
 
     # Save metadata
     drop_path = Path(PROCESSED_DIR) / "drop_reasons.json"
-    json.dump(drop_reasons, open(drop_path, "w"), indent=2)
+    with open(drop_path, "w") as f:
+        json.dump(drop_reasons, f, indent=2)
 
     summary = {
-        "records_after_cleaning": len(cleaned_records),
+        "records_after_cleaning": len(cleaned_texts),
         "shards": num_shards,
         "shard_size": SHARD_SIZE,
         "drop_reasons": drop_reasons,
-        "runtime_sec": round(time.time()-start, 2)
+        "runtime_sec": round(time.time()-start, 2),
+        "text_output": str(text_output_file),
+        "token_output": str(combined_file)
     }
-    json.dump(summary, open(Path(PROCESSED_DIR) / "pipeline_summary.json", "w"), indent=2)
+    
+    with open(Path(PROCESSED_DIR) / "pipeline_summary.json", "w") as f:
+        json.dump(summary, f, indent=2)
 
     print("\n" + "="*60)
     print("✨ PIPELINE COMPLETE")
@@ -271,7 +338,9 @@ def main():
     print(f"Time: {summary['runtime_sec']} sec")
     print(f"Records: {summary['records_after_cleaning']:,}")
     print(f"Shards: {num_shards}")
-    print("Drop reasons saved to:", drop_path)
+    print(f"Text output (SUBMIT THIS): {text_output_file}")
+    print(f"Token output: {combined_file}")
+    print(f"Drop reasons saved to: {drop_path}")
 
 
 if __name__ == "__main__":
