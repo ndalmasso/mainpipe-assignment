@@ -76,6 +76,8 @@ SHARD_SIZE = 5000    # Records per output shard
 ## Output
 
 ### Processed Data
+- `data/processed/all_processed.jsonl` - Combined tokenized sequences
+- `data/processed/all_processed_text.jsonl` - Combined text sequences
 - `data/processed/shard_XXXX.jsonl` - Tokenized sequences
 - `data/processed/drop_reasons.json` - Filtering statistics
 - `data/processed/pipeline_summary.json` - Performance metrics
@@ -121,6 +123,7 @@ All plots saved to `data/plots/`:
 - Python 3.10+
 - 8GB+ RAM recommended
 - Disk space: ~3x input data size
+
 
 
 
