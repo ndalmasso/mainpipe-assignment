@@ -24,7 +24,7 @@ mainpipe-assignment/
 ├── run_pipeline.sh               # Automated execution script
 ├── Dockerfile                    # Container configuration
 ├── requirements.txt              # Python dependencies
-└── README.md                     # This file
+├── README.md                     # This file
 └── ND_Mainpipe_Assignment.pdf    # pdf of the report
 ```
 
@@ -121,6 +121,7 @@ All plots saved to `data/plots/`:
 - Python 3.10+
 - 8GB+ RAM recommended
 - Disk space: ~3x input data size
+
 
 
 
