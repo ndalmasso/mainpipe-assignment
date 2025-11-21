@@ -9,7 +9,7 @@ mainpipe-assignment/
 │
 ├── mod/                           # Core pipeline modules
 │   ├── __init__.py
-│   └── new_data_clean.py         # Cleaning, tokenization, PII removal
+│   └── data_cleaning.py         # Cleaning, tokenization, PII removal
 │
 ├── scripts/                       # Inspection/analysis scripts
 │   ├── input_inspection.py       # Pre-processing analysis
@@ -25,6 +25,7 @@ mainpipe-assignment/
 ├── Dockerfile                    # Container configuration
 ├── requirements.txt              # Python dependencies
 └── README.md                     # This file
+└── ND_Mainpipe_Assignment.pdf    # pdf of the report
 ```
 
 ## Features
@@ -48,7 +49,6 @@ mainpipe-assignment/
 Download your input `.jsonl` files and place them in a new folder inside data/: data/raw
 
 The pipeline expects this directory to contain all raw input files.
-
 
 ### Option 1: Local Setup
 ```bash
@@ -143,4 +143,5 @@ All plots saved to `data/plots/`:
 - Python 3.10+
 - 8GB+ RAM recommended
 - Disk space: ~3x input data size
+
 
